@@ -34,3 +34,10 @@ git add .
 git commit -m "feat: init airflow 3.x deploy stack"
 git branch -M main
 git push -u origin main
+
+
+# Далее склонировать репозиторий
+git clone https://github.com/ТВОЙ_НИК/airflow-deploy.git /opt/airflow
+
+# Перейти в директорию, накинуть права и запустить скрипт инициализации, если он есть
+cd /opt/airflow && chmod +x scripts/deploy.sh && ./scripts/deploy.sh
