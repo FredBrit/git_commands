@@ -1,0 +1,36 @@
+# Создание репозитория на примере Airflow
+
+# 1. Создай репозиторий на GitHub (веб-интерфейс)
+#    Name: airflow-deploy
+#    Visibility: Private (рекомендуется, там будут секреты)
+#    НЕ ставь галочки "Add README", ".gitignore", "License"
+
+# 2. Клонируй пустой репозиторий локально
+git clone https://github.com/ТВОЙ_НИК/airflow-deploy.git
+cd airflow-deploy
+
+# 3. Создай структуру папок и файлы
+mkdir -p config/postgres scripts dags plugins logs
+
+# Создай пустые файлы для Git (чтобы папки не игнорировались)
+touch dags/.gitkeep plugins/.gitkeep logs/.gitkeep
+
+# 4. Создай/вставь файлы (можно через VS Code, nano, или cat << 'EOF')
+#    Например:
+nano .env.example        # вставь содержимое
+nano .gitignore          # вставь содержимое
+nano docker-compose.yaml # вставь содержимое
+nano Dockerfile          # вставь содержимое
+nano config/airflow.cfg  # вставь содержимое
+nano config/postgres/postgresql.conf # вставь содержимое
+nano scripts/deploy.sh   # вставь содержимое
+nano README.md           # вставь содержимое
+
+# 5. Дай права на выполнение скрипту
+chmod +x scripts/deploy.sh
+
+# 6. Закоммить и отправь на GitHub
+git add .
+git commit -m "feat: init airflow 3.x deploy stack"
+git branch -M main
+git push -u origin main
