@@ -26,8 +26,18 @@
   git push
 
 # Это команда первой отправки новой ветки на сервер.
-# 
-  git push -u origin main
+# git push -u origin main
+
+# Скачать актуальную версию репозитория с гита
+# git pull
 
 # Переименовывает файл (это команда Windows, не Git).
   ren Untitled.ipynb match_case.ipynb
+
+__________________________________________________________________________
+Более сложные команды
+
+# git checkout --ours middle_tasks.ipynb или git checkout --theirs middle_tasks.ipynb (при конфликте версий для слияния можно выбрать либо локальную (ours), либо с гитхаба (theirs))
+# git add middle_tasks.ipynb
+# git commit -m "Оставлена локальная версия ноутбука"
+# git push
