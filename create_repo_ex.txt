@@ -41,3 +41,54 @@ git clone https://github.com/ТВОЙ_НИК/airflow-deploy.git /opt/airflow
 
 # Перейти в директорию, накинуть права и запустить скрипт инициализации, если он есть
 cd /opt/airflow && chmod +x scripts/deploy.sh && ./scripts/deploy.sh
+
+______________________________________________________________________________________________________
+
+### Создание проекта в гите на основе уже существующего проекта на машине
+
+## Создать файл .gitignore в корне проекта и добавить туда следующее
+
+# Виртуальное окружение
+ venv/
+ .venv/
+ env/
+
+ # Python
+ __pycache__/
+ *.py[cod]
+ *$py.class
+ *.so
+
+ # IDE
+ .vscode/
+ .idea/
+ *.swp
+ *.swo
+
+ # Переменные окружения (никогда не коммитьте пароли!)
+ .env
+
+
+## Создай репозиторий на GitHub (веб-интерфейс)
+#    Name: example
+#    Visibility: Private/Public
+#    НЕ ставь галочки "Add README", ".gitignore", "License"
+
+## Выполняем последовательно команды
+# 1. Инициализируем Git в текущей папке
+git init
+
+# 2. Добавляем все файлы (кроме тех, что в .gitignore, включая venv!)
+git add .
+
+# 3. Делаем первый коммит
+git commit -m "Initial commit: FastAPI project structure"
+
+# 4. Переименовываем главную ветку в main (современный стандарт)
+git branch -M main
+
+# 5. Привязываем локальный репозиторий к вашему GitHub (вставьте свой URL)
+git remote add origin https://github.com/ВАШ_ЛОГИН/ВАШ_РЕПОЗИТОРИЙ.git
+
+# 6. Отправляем код на GitHub
+git push -u origin main
