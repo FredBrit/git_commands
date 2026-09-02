@@ -26,6 +26,12 @@ git push origin main
 # Дальнейшая работа: пуш в GitLab
 git push gitlab main
 
+
+
+
+
+
+
 ### Подключение целевой машины к GitLab для развертывания проекта
 
 # Установить Docker
