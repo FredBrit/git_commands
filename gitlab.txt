@@ -72,6 +72,32 @@ source venv/bin/activate
 # Установить зависимости проекта
 pip install -r requirements.txt
 
+ИЛИ если нужно конкретная версия питона
+
+# Установить зависимости для deadsnakes (если ещё нет)
+apt-get update
+apt-get install -y software-properties-common
+add-apt-repository -y ppa:deadsnakes/ppa
+apt-get update
+
+# Установить конкретно Python 3.11 и модуль venv для него
+apt-get install -y python3.11 python3.11-venv
+
+# Перейти в папку проекта
+cd /opt/booking
+
+# Создать виртуальное окружение на базе Python 3.11
+python3.11 -m venv venv
+
+# Активировать окружение
+source venv/bin/activate
+
+# Проверить, что версия правильная (должно быть 3.11.x)
+python --version
+
+# Установить зависимости
+pip install -r requirements.txt
+
 # Создать файл .env из примера (если есть .env.example)
 cp .env.example .env
 
