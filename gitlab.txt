@@ -1,1 +1,29 @@
+### Подключение локального репозитория к GitLab
+# Проверить права на ключ (SSH отказывается работать с слишком открытыми правами)
+chmod 600 ~/.ssh/id_ed25519 && chmod 644 ~/.ssh/id_ed25519.pub
+
+# Вывести публичный ключ — скопируйте всю строку и вставьте в GitLab → Settings → SSH Keys
+cat ~/.ssh/id_ed25519.pub
+
+# Проверить, что GitLab принимает ключ (должно ответить: Welcome to GitLab, @FredBrit!)
+ssh -T git@gitlab.com
+
+# Перейти в папку проекта
+cd /opt/edu_fast_api
+
+# Добавить GitLab как второй remote (origin уже занят GitHub)
+git remote add gitlab git@gitlab.com:FredBrit/booking.git
+
+# Убедиться, что оба remote на месте
+git remote -v
+
+# Запушить текущую ветку в GitLab и запомнить связь
+git push -u gitlab main
+
+# Дальнейшая работа: пуш в GitHub
+git push origin main
+
+# Дальнейшая работа: пуш в GitLab
+git push gitlab main
+
 
