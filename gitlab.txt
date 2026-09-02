@@ -54,6 +54,8 @@ cd /opt
 
 # Клонировать репозиторий из GitLab
 git clone git@gitlab.com:FredBrit/booking.git
+ИЛИ
+git clone git@gitlab.com:FredBrit/booking.git edu-fast-api (для явного указания наименования папки проекта, в которой он будет находиться)
 
 # Перейти в папку проекта
 cd booking
