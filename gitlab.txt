@@ -32,83 +32,23 @@ git push gitlab main
 
 
 
-### Подключение целевой машины к GitLab для развертывания проекта
+### Подключение целевой машины к GitLab для развертывания проекта через GitLab CI и Registry
 
-# Установить Docker
-curl -fsSL  -o get-docker.sh && sh get-docker.sh
+# 1. Установить Docker
+curl -fsSL https://get.docker.com | sh
 
-# Установить плагин Docker Compose (входит в состав Docker CLI)
-apt-get update && apt-get install -y docker-compose-plugin
+# 2. Docker Compose уже идёт в составе Docker (проверить)
+docker compose version
 
-# Проверить, что Docker и Compose работают
-docker --version && docker compose version
+# 3. Добавить пользователя в группу docker (чтобы не писать sudo)
+usermod -aG docker $USER
+newgrp docker
 
-# Создать папку для SSH-ключей
-mkdir -p ~/.ssh && chmod 700 ~/.ssh
-
-# Сгенерировать SSH-ключ (без passphrase, чтобы не ломать CI/CD)
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
-
-# Вывести публичный ключ — скопируйте всю строку и вставьте в GitLab → Settings → SSH Keys
-cat ~/.ssh/id_ed25519.pub
-
-# Проверить, что GitLab принимает ключ (должно ответить: Welcome to GitLab, @FredBrit!)
-ssh -T 
-
-# Перейти в папку, куда будете клонировать проект
-cd /opt
-
-# Клонировать репозиторий из GitLab
-git clone git@gitlab.com:FredBrit/booking.git
-ИЛИ
-git clone git@gitlab.com:FredBrit/booking.git edu-fast-api (для явного указания наименования папки проекта, в которой он будет находиться)
-
-# Перейти в папку проекта
-cd booking
-
-# Установить Python и venv
-apt-get install -y python3 python3-venv
-
-# Создать виртуальное окружение
-python3 -m venv venv
-
-# Активировать виртуальное окружение
-source venv/bin/activate
-
-# Установить зависимости проекта
-pip install -r requirements.txt
-
-ИЛИ если нужно конкретная версия питона
-
-# Установить зависимости для deadsnakes (если ещё нет)
-apt-get update
-apt-get install -y software-properties-common
-add-apt-repository -y ppa:deadsnakes/ppa
-apt-get update
-
-# Установить конкретно Python 3.11 и модуль venv для него
-apt-get install -y python3.11 python3.11-venv
-
-# Перейти в папку проекта
+# 4. Создать папку для проекта
+mkdir -p /opt/booking
 cd /opt/booking
 
-# Создать виртуальное окружение на базе Python 3.11
-python3.11 -m venv venv
-
-# Активировать окружение
-source venv/bin/activate
-
-# Проверить, что версия правильная (должно быть 3.11.x)
-python --version
-
-# Установить зависимости
-pip install -r requirements.txt
-
-# Создать файл .env из примера (если есть .env.example)
-cp .env.example .env
-
-# Поднять проект через Docker Compose
-docker compose up -d --build
+# 5. Создать docker-compose.yml и все переменные окружения
 
 
 
