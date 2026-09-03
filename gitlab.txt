@@ -17,6 +17,24 @@ git remote add gitlab git@gitlab.com:FredBrit/booking.git
 # Убедиться, что оба remote на месте
 git remote -v
 
+# Создай SSH-ключ для деплоя (отдельный от твоих личных ключей)
+ssh-keygen -t ed25519 -f gitlab_deploy -N ""
+
+# Посмотри приватный ключ (скопируешь в GitLab)
+cat gitlab_deploy
+
+# Посмотри публичный ключ (скопируешь на целевую машину)
+cat gitlab_deploy.pub
+
+# 5. Создай .gitlab-ci.yml (если еще не создал)
+
+# 6. Проверь, что Dockerfile на месте
+
+# 7. Закоммить и запушь изменения
+git add .gitlab-ci.yml Dockerfile
+git commit -m "Add CI/CD pipeline"
+git push origin main
+
 # Запушить текущую ветку в GitLab и запомнить связь
 git push -u gitlab main
 
