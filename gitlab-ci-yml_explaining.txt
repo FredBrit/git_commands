@@ -137,3 +137,246 @@ deploy:
   environment:
     name: production
     url: http://$DEPLOY_HOST:7777
+
+
+################################################################### ОБЪЯСНЕНИЕ КАЖДОЙ СЕКЦИИ #################################################################################
+
+### Глобальная конфигурация
+
+stages:
+  - test
+  - build
+  - deploy
+
+Что делает: Определяет порядок выполнения этапов (стадий).
+Все задачи (jobs) внутри одной стадии (например, если бы их было две в test) запускаются параллельно.
+Следующая стадия (build) начнется только если все задачи предыдущей стадии (test) завершились успешно (зеленая галочка).
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DB_NAME: "test"
+  # ... и так далее
+  DB_PASS: "$DB_PASS"
+
+
+Что делает: Задает переменные окружения, доступные всем задачам пайплайна по умолчанию.
+DOCKER_DRIVER: overlay2 — рекомендация GitLab для быстрой работы с файловой системой Docker.
+DB_PASS: "$DB_PASS" — Важный момент: это означает "возьми значение из переменной DB_PASS, которую я создал в интерфейсе GitLab (Settings → CI/CD → Variables). Если там её нет, подставится пустая строка (или дефолт, если бы мы использовали синтаксис ${DB_PASS:-default})".
+
+
+### Тесты
+
+test:
+  stage: test
+  image: python:3.11-slim
+
+
+Что делает: Создает задачу test. Она запускается внутри легкого Docker-контейнера с Python 3.11. Это изолированная среда, которая уничтожится после завершения задачи.
+
+ services:
+    - name: postgres:16
+      alias: postgres
+      variables:
+        POSTGRES_DB: "test"
+        POSTGRES_USER: "fredbrit"
+        POSTGRES_PASSWORD: "$DB_PASS"
+    - name: redis:7.4
+      alias: redis
+
+
+Что делает: Это "магия" GitLab CI. Перед запуском твоего Python-кода, GitLab автоматически поднимает временные контейнеры с PostgreSQL и Redis.
+alias: postgres — создает сетевое имя. Твое приложение сможет обратиться к базе по адресу postgres, а не по IP.
+variables внутри service — передает инструкции самому контейнеру PostgreSQL при его старте: "создай базу test, пользователя fredbrit с этим паролем".
+
+
+variables:
+    MODE: "TEST"
+    DB_HOST: "postgres"
+    # ...
+    DB_PASS: "$DB_PASS"
+
+
+Что делает: Задает переменные окружения внутри твоего Python-контейнера. Именно их читает pydantic в твоем src/config.py. 
+Обрати внимание: DB_HOST жестко задан как "postgres" (это alias сервиса выше), а пароль берется из секретов GitLab.
+
+
+ before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install pytest pytest-cov
+
+
+Что делает: Выполняется перед основным скриптом. Устанавливает зависимости проекта и инструменты для тестирования.
+
+
+script:
+    - pytest tests/ -v --cov=src --cov-report=xml
+
+Что делает: Запускает тесты.
+-v — подробный вывод.
+--cov=src — считает, какой процент кода в папке src покрыт тестами.
+--cov-report=xml — сохраняет отчет в формате, который понимает GitLab.
+
+
+artifacts:
+  when: always
+  reports:
+    coverage_report:
+      coverage_format: cobertura
+      path: coverage.xml
+
+
+Что делает: Сохраняет файлы после смерти контейнера.
+when: always — сохранить артефакты, даже если тесты упали (чтобы ты мог посмотреть, почему).
+reports — говорит GitLab: "прочитай этот XML-файл и нарисуй красивую плашку с процентом покрытия кода в интерфейсе Merge Request".
+
+
+rules:
+  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  - if: $CI_COMMIT_BRANCH == "main"
+
+
+Что делает: Условие запуска. Тесты запустятся, только если создан Merge Request или код попал в ветку main. Если ты работаешь в ветке feature, пайплайн не запустится, экономя ресурсы.
+
+
+### Сборка образа (Build)
+
+build:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+
+
+Что делает: Настраивает Docker-in-Docker (DinD).
+Поскольку GitLab-раннер сам является контейнером, чтобы выполнить команду docker build, ему нужен работающий Docker-демон.
+image дает нам консольную команду docker.
+service: ...-dind запускает второй контейнер, который выступает в роли Docker-демона.
+DOCKER_HOST связывает их по сети.
+
+
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+
+Что делает: Авторизует раннер в GitLab Container Registry, используя встроенные переменные GitLab (тебе не нужно создавать их вручную).
+
+
+script:
+  - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+  - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
+  - docker push $CI_REGISTRY_IMAGE:latest
+
+
+Что делает: 4 шага создания артефакта:
+1. Собирает образ из Dockerfile и дает ему уникальное имя на основе хэша коммита (например, ...:a1b2c3d). Это Immutable (неизменяемый) артефакт.
+2. Отправляет его в GitLab Registry.
+3. Вешает на этот же образ дополнительный "ярлык" (тег) latest.
+4. Отправляет ярлык latest в Registry.
+Зачем два тега? latest удобен для деплоя (сервер всегда тянет его), а хэш коммита позволяет мгновенно откатиться на конкретную версию, если что-то сломалось.
+
+
+rules:
+  - if: $CI_COMMIT_BRANCH == "main"
+
+Что делает: Собирает образ только для ветки main. Нет смысла засорять Registry образами из рабочих веток.
+
+
+### Деплой
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+
+
+Что делает: Запускает задачу в сверхлегком Linux (Alpine). Нам не нужны Python или Docker, нам нужен только SSH-клиент, чтобы подключиться к серверу.
+
+
+before_script:
+  - apk add --no-cache openssh-client bash
+  - eval $(ssh-agent -s)
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts 2>/dev/null
+
+
+Что делает: Готовит безопасное SSH-подключение.
+1. Устанавливает SSH-клиент.
+2. Запускает агент ключей.
+3. Добавляет приватный ключ (взятый из переменных GitLab) в агент. tr -d '\r' удаляет скрытые символы переноса строки Windows, которые часто ломают ключи.
+4. Создает папку .ssh с правильными правами (иначе SSH откажется работать).
+5. Критически важно: ssh-keyscan добавляет отпечаток твоего сервера в "доверенные". Без этого SSH спросил бы "Are you sure you want to continue connecting (yes/no)?", и пайплайн завис бы навечно, ожидая нажатия клавиши.
+
+
+script:
+  - |
+    ENCODED_TOKEN=$(echo -n "$CI_JOB_TOKEN" | base64 -w 0)
+    ssh $DEPLOY_USER@$DEPLOY_HOST "
+      set -e
+      cd /opt/booking
+      echo \"$ENCODED_TOKEN\" | base64 -d | docker login -u gitlab-ci-token --password-stdin registry.gitlab.com
+      echo 'Pulling latest image...'
+      docker pull $CI_REGISTRY_IMAGE:latest
+      echo 'Restarting containers...'
+      docker compose down || true
+      docker compose up -d
+      echo 'Cleaning up...'
+      docker image prune -f
+      docker logout registry.gitlab.com
+    "
+
+
+Что делает: Выполняет многострочный скрипт прямо на твоем целевом сервере:
+ENCODED_TOKEN... — кодирует токен доступа GitLab в base64, чтобы безопасно передать его через SSH без проблем с экранированием спецсимволов.
+ssh ... "..." — подключается к серверу.
+set -e — режим "fail fast". Если любая команда внутри кавычек упадет с ошибкой, скрипт немедленно остановится.
+docker login — декодирует токен и авторизует Docker на сервере, чтобы тот мог скачать приватный образ из GitLab.
+docker pull — скачивает свежий образ.
+docker compose down || true — останавливает старые контейнеры. || true нужен для самого первого деплоя, когда контейнеров еще нет (иначе команда вернет ошибку и остановит скрипт из-за set -e).
+docker compose up -d — запускает новые контейнеры из скачанного образа, используя docker-compose.yml и .env, которые уже лежат на сервере.
+docker image prune -f — удаляет старые, неиспользуемые образы, освобождая место на диске сервера.
+docker logout — хорошая практика безопасности, выход из реестра после завершения.
+
+
+rules:
+  - if: $CI_COMMIT_BRANCH == "main"
+    when: manual
+
+Что делает: Задает условие: запускать только для main, но вручную (when: manual). В интерфейсе GitLab появится кнопка ▶ Play. Это страховка: ты сам решаешь, когда обновлять продакшен.
+
+
+
+environment:
+  name: production
+  url: http://$DEPLOY_HOST:7777
+
+
+Что делает: Чисто визуальная фича GitLab. После успешного деплоя в разделе Deploy → Environments появится карточка "production" с кликабельной ссылкой на твое работающее приложение.
+
+
+### Вывод
+
+1. Этот файл реализует паттерн Immutable Infrastructure (Неизменяемая инфраструктура):
+2. Код тестируется в изоляции.
+3. Из проверенного кода собирается неизменяемый "слепок" (Docker-образ).
+4. Этот слепок доставляется на сервер. Сервер не знает ничего о коде, он просто запускает готовый контейнер.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
